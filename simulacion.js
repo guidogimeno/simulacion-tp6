@@ -41,6 +41,8 @@ class Simulador {
 
     console.log('NT:', this.nt)
 
+    console.log('ARR:', this.arr)
+
     this.pps = this.stp / this.nt
     console.log('PPS:', this.pps)
 
