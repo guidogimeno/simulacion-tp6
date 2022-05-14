@@ -61,7 +61,19 @@ class Simulador {
   }
 
   intervaloDeAtencion() {
-    return (Math.log(-Math.random() + 1) * -2500) / 60;
+    return (Math.log(-Math.random() + 1) * -1600) / 60;
+  }
+
+  tiempoDeAtencionPeluqueria() {
+    const r = this.random();
+    const aux = this.erfinv(2 * r - 1);
+    return (2070.8333 + 733.4062 * Math.pow(2, 0.5) * aux) / 60;
+  }
+
+  tiempoDeAtencionManicura() {
+    const r = this.random();
+    const aux = this.erfinv(2 * r - 1);
+    return (5432.1429 + 802.5803 * Math.pow(2, 0.5) * aux) / 60;
   }
 
   random() {
@@ -80,16 +92,23 @@ class Simulador {
       this.sto[j] += this.t - this.tc[j];
       this.tc[j] = this.t + tap;
     } else {
-      const tiempoDeEspera = this.tc[j] - this.t;
-      if (this.estaArrepentido(tiempoDeEspera)) return;
-
-      this.ste += this.tc[j] - this.t;
-      if (this.t >= this.tc[i]) {
-        this.sto[i] += this.tc[j] - this.tc[i];
-      } else {
-        this.tc[i] = this.tc[i] + tam;
-        this.tc[j] = this.tc[j] + tap;
+      if (this.estaArrepentidoDobleAtencion(this.tc[i], this.tc[j], tam)) {
+        return;
       }
+
+      if (this.t >= this.tc[i]) {
+        this.sto[i] += this.t - this.tc[i];
+        this.tc[i] = this.t + tam;
+      } else {
+        this.ste += this.tc[i] - this.t;
+        this.tc[i] += tam;
+      }
+
+      if (this.tc[j] > this.tc[i]) {
+        this.ste += this.tc[j] - this.tc[i];
+      }
+
+      this.tc[j] += tap;
     }
 
     if (this.tc[i] <= this.tc[j]) {
@@ -128,37 +147,18 @@ class Simulador {
     this.nt += 1;
   }
 
+  buscarMenor(pos = 0) {
+    const tcCopy = [...this.tc];
+    const sorted = tcCopy.sort((a, b) => (a < b ? -1 : 1));
+    return this.tc.indexOf(sorted[pos]);
+  }
+
   menorTiempoComprometido() {
-    let min = 0;
-    for (let i = 0; i < this.tc.length; i++) {
-      if (this.tc[i] <= this.tc[min]) {
-        min = i;
-      }
-    }
-    return min;
+    return this.buscarMenor(0);
   }
 
   segundoMenorTiempoComprometido() {
-    const min1 = this.menorTiempoComprometido();
-    let min2 = 0;
-    for (let i = 0; i < this.tc.length; i++) {
-      if (i !== min1 && this.tc[i] <= this.tc[min2]) {
-        min2 = i;
-      }
-    }
-    return min2;
-  }
-
-  tiempoDeAtencionPeluqueria() {
-    const r = this.random();
-    const aux = this.erfinv(2 * r - 1);
-    return (2070.8333 + 733.4062 * Math.pow(2, 0.5) * aux) / 60;
-  }
-
-  tiempoDeAtencionManicura() {
-    const r = this.random();
-    const aux = this.erfinv(2 * r - 1);
-    return (5432.1429 + 802.5803 * Math.pow(2, 0.5) * aux) / 60;
+    return this.buscarMenor(1);
   }
 
   estaArrepentido(tiempoDeEspera) {
@@ -186,6 +186,20 @@ class Simulador {
     }
   }
 
+  estaArrepentidoDobleAtencion(tci, tcj, fdpVal) {
+    let te = 0;
+
+    if (this.t < tci) {
+      te += tci - this.t;
+    }
+
+    if (tcj > tci + fdpVal) {
+      te += tcj - (tci + fdpVal);
+    }
+
+    return this.estaArrepentido(te);
+  }
+
   erfinv(x) {
     // maximum relative error = .00013
     const a = 0.147;
@@ -205,7 +219,7 @@ const args = argsArr.reduce(
   {}
 );
 
-const tfToSecond = 333333333.333333;
+const tfToSecond = 1;
 
 const simulador = new Simulador(
   args.n ? parseInt(args.n) : 3,
